@@ -1,0 +1,166 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: #1a1a1a;
+    font-family: 'Arial', sans-serif;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.modal-content {
+    position: relative;
+    background: rgba(255, 255, 255, 0.95);
+    margin: 15% auto;
+    padding: 40px;
+    width: 70%;
+    max-width: 600px;
+    border-radius: 20px;
+    box-shadow: 
+        0 0 30px rgba(0, 255, 255, 0.3),
+        0 0 60px rgba(0, 255, 255, 0.1);
+    transform: translateY(0);
+    animation: modalSlideIn 0.5s ease-out;
+}
+
+.modal-content h2 {
+    color: #333;
+    font-size: 2em;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.modal-content p {
+    color: #666;
+    line-height: 1.6;
+    font-size: 1.1em;
+}
+
+.close-btn {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.close-btn:hover {
+    color: #ff0000;
+    background: rgba(255, 0, 0, 0.1);
+    transform: rotate(90deg);
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 90%;
+        margin: 10% auto;
+        padding: 30px 20px;
+    }
+
+    .modal-content h2 {
+        font-size: 1.5em;
+    }
+
+    .modal-content p {
+        font-size: 1em;
+    }
+
+    .close-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 32px;
+    }
+}
+
+/* Prevent scrolling on mobile */
+@media (hover: none) and (pointer: coarse) {
+    body {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+/* Hide scrollbars */
+::-webkit-scrollbar {
+    display: none;
+}
+
+body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+@keyframes modalFadeIn {
+    from { 
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+    to { 
+        opacity: 1;
+        backdrop-filter: blur(8px);
+    }
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.glow {
+    animation: glow 1s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from {
+        box-shadow: 
+            0 0 10px #fff,
+            0 0 20px #fff,
+            0 0 30px var(--glow-color, #0ff),
+            0 0 40px var(--glow-color, #0ff);
+    }
+    to {
+        box-shadow: 
+            0 0 20px #fff,
+            0 0 30px var(--glow-color, #0ff),
+            0 0 40px var(--glow-color, #0ff),
+            0 0 50px var(--glow-color, #0ff);
+    }
+}
