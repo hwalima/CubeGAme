@@ -2,19 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maze Menu Adventure</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ATRYBUTE Interactive</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     
-    <!-- Modal -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
-            <div id="modal-content"></div>
+            <div id="modal-text"></div>
         </div>
+    </div>
+
+    <div id="mobile-controls" class="mobile-controls">
+        <div class="joystick-area"></div>
     </div>
 
     <script src="script.js"></script>
