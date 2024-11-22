@@ -1,8 +1,31 @@
 class Game {
     constructor() {
+        // Initialize canvas first
         this.canvas = document.getElementById('gameCanvas');
+        if (!this.canvas) {
+            console.error('Canvas element not found');
+            return;
+        }
+        
         this.ctx = this.canvas.getContext('2d');
+        
+        // Mobile detection
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.touchControls = {
+            active: false,
+            startX: 0,
+            startY: 0,
+            moveX: 0,
+            moveY: 0
+        };
+
+        // Set initial canvas size
         this.resizeCanvas();
+        
+        // Handle mobile-specific setup
+        if (this.isMobile) {
+            this.setupMobileControls();
+        }
         
         // Game elements
         this.cube = {
@@ -11,7 +34,78 @@ class Game {
             size: 30,
             speed: 5
         };
+
+        // Initialize enemies with default positions
+        this.enemies = [
+            { x: window.innerWidth - 100, y: window.innerHeight - 100, size: 30, speed: 3, color: '#ff0000', behavior: 'chase' },
+            { x: window.innerWidth - 100, y: 100, size: 30, speed: 2, color: '#ff0000', behavior: 'flanker' },
+            { x: 100, y: window.innerHeight - 100, size: 30, speed: 2.5, color: '#ff0000', behavior: 'random', direction: Math.random() * Math.PI * 2 }
+        ];
+
+        // Logo configuration
+        this.logo = {
+            text: 'ATRYBUTE',
+            x: window.innerWidth / 2 - 100,
+            y: window.innerHeight / 2 - 30,
+            size: 60,
+            gradient: {
+                start: '#23CCA3',
+                end: '#E30EBE'
+            }
+        };
         
+        // Initialize menu items with default positions
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const radius = Math.min(window.innerWidth, window.innerHeight) * 0.25;
+        
+        this.menuItems = [
+            { 
+                x: centerX - 150, 
+                y: centerY - radius, 
+                width: 120, 
+                height: 120, 
+                content: 'About Us', 
+                gradient: {
+                    start: '#23CCA3',
+                    end: '#E30EBE'
+                }
+            },
+            { 
+                x: centerX + radius - 60, 
+                y: centerY - 60, 
+                width: 120, 
+                height: 120, 
+                content: 'Blogs', 
+                gradient: {
+                    start: '#E30EBE',
+                    end: '#23CCA3'
+                }
+            },
+            { 
+                x: centerX - 150, 
+                y: centerY + radius - 120, 
+                width: 120, 
+                height: 120, 
+                content: 'Our Games', 
+                gradient: {
+                    start: '#23CCA3',
+                    end: '#E30EBE'
+                }
+            },
+            { 
+                x: centerX - radius - 60, 
+                y: centerY - 60, 
+                width: 120, 
+                height: 120, 
+                content: 'Contact', 
+                gradient: {
+                    start: '#E30EBE',
+                    end: '#23CCA3'
+                }
+            }
+        ];
+
         // Trail system
         this.trail = [];
         this.trailColors = [
@@ -27,13 +121,6 @@ class Game {
         this.trailUpdateCounter = 0;
         this.trailUpdateFrequency = 2;
 
-        this.menuItems = [
-            { x: 200, y: 150, width: 100, height: 100, content: 'About Us', color: '#FF6B6B' },
-            { x: 400, y: 300, width: 100, height: 100, content: 'Blogs', color: '#4ECDC4' },
-            { x: 600, y: 150, width: 100, height: 100, content: 'Our Games', color: '#45B7D1' },
-            { x: 200, y: 450, width: 100, height: 100, content: 'Contact', color: '#96CEB4' }
-        ];
-
         // Paint splashes array
         this.paintSplashes = [];
 
@@ -45,33 +132,21 @@ class Game {
             d: false
         };
 
-        // Mobile detection and controls
-        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        this.gyroscopeAvailable = false;
-        this.touchControls = {
-            active: false,
-            startX: 0,
-            startY: 0
-        };
-
-        // Modal elements
-        this.modal = document.getElementById('modal');
-        this.modalContent = document.getElementById('modal-content');
-        this.closeBtn = document.querySelector('.close-btn');
-
         // Event listeners
         window.addEventListener('resize', () => this.resizeCanvas());
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
         window.addEventListener('keyup', (e) => this.handleKeyUp(e));
-        this.closeBtn.addEventListener('click', () => this.closeModal());
+        
+        // Modal setup
+        this.modal = document.getElementById('modal');
+        this.modalText = document.getElementById('modal-text');
+        this.closeBtn = document.querySelector('.close-btn');
+        if (this.closeBtn) {
+            this.closeBtn.addEventListener('click', () => this.closeModal());
+        }
 
         // Mobile-specific event listeners
         if (this.isMobile) {
-            // Touch controls
-            this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-            this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-            this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
-
             // Request gyroscope permission and setup
             if (window.DeviceOrientationEvent) {
                 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -98,9 +173,153 @@ class Game {
         this.gameLoop();
     }
 
+    setupMobileControls() {
+        const joystickArea = document.querySelector('.joystick-area');
+        
+        // Touch start
+        joystickArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            this.touchControls.active = true;
+            this.touchControls.startX = touch.clientX;
+            this.touchControls.startY = touch.clientY;
+        });
+
+        // Touch move
+        joystickArea.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!this.touchControls.active) return;
+
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - this.touchControls.startX;
+            const deltaY = touch.clientY - this.touchControls.startY;
+            
+            // Calculate movement direction
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = 50; // Maximum joystick movement
+            
+            if (distance > maxDistance) {
+                const angle = Math.atan2(deltaY, deltaX);
+                this.touchControls.moveX = Math.cos(angle) * maxDistance;
+                this.touchControls.moveY = Math.sin(angle) * maxDistance;
+            } else {
+                this.touchControls.moveX = deltaX;
+                this.touchControls.moveY = deltaY;
+            }
+        });
+
+        // Touch end
+        joystickArea.addEventListener('touchend', () => {
+            this.touchControls.active = false;
+            this.touchControls.moveX = 0;
+            this.touchControls.moveY = 0;
+        });
+
+        // Prevent default touch behaviors
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+
+    updatePlayerPosition() {
+        if (this.isMobile && this.touchControls.active) {
+            // Mobile movement
+            const sensitivity = 0.1;
+            this.cube.x += this.touchControls.moveX * sensitivity;
+            this.cube.y += this.touchControls.moveY * sensitivity;
+        } else {
+            // Keyboard movement
+            if (this.keys.w || this.keys.ArrowUp) this.cube.y -= this.cube.speed;
+            if (this.keys.s || this.keys.ArrowDown) this.cube.y += this.cube.speed;
+            if (this.keys.a || this.keys.ArrowLeft) this.cube.x -= this.cube.speed;
+            if (this.keys.d || this.keys.ArrowRight) this.cube.x += this.cube.speed;
+        }
+
+        // Keep player within bounds
+        this.cube.x = Math.max(0, Math.min(this.canvas.width - this.cube.size, this.cube.x));
+        this.cube.y = Math.max(0, Math.min(this.canvas.height - this.cube.size, this.cube.y));
+    }
+
     resizeCanvas() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        // Get device pixel ratio
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Get display size
+        const displayWidth = window.innerWidth;
+        const displayHeight = window.innerHeight;
+        
+        // Set canvas size accounting for pixel ratio
+        this.canvas.width = displayWidth * dpr;
+        this.canvas.height = displayHeight * dpr;
+        
+        // Scale canvas CSS size
+        this.canvas.style.width = `${displayWidth}px`;
+        this.canvas.style.height = `${displayHeight}px`;
+        
+        // Scale context to match pixel ratio
+        this.ctx.scale(dpr, dpr);
+        
+        // Update positions
+        this.updateMenuPositions();
+    }
+
+    updateMenuPositions() {
+        if (!this.canvas || !this.menuItems) return;
+
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        const radius = Math.min(this.canvas.width, this.canvas.height) * 0.25;
+        
+        // Update menu items positions
+        this.menuItems.forEach((item, index) => {
+            if (!item) return;
+            
+            switch(index) {
+                case 0: // Top
+                    item.x = centerX - 150;
+                    item.y = centerY - radius;
+                    break;
+                case 1: // Right
+                    item.x = centerX + radius - 60;
+                    item.y = centerY - 60;
+                    break;
+                case 2: // Bottom
+                    item.x = centerX - 150;
+                    item.y = centerY + radius - 120;
+                    break;
+                case 3: // Left
+                    item.x = centerX - radius - 60;
+                    item.y = centerY - 60;
+                    break;
+            }
+        });
+
+        // Update logo position
+        if (this.logo) {
+            this.logo.x = centerX - 100;
+            this.logo.y = centerY - 30;
+        }
+
+        // Update enemy positions
+        if (this.enemies) {
+            this.enemies.forEach(enemy => {
+                if (!enemy) return;
+            });
+            if (this.enemies[0]) {
+                this.enemies[0].x = this.canvas.width - 100;
+                this.enemies[0].y = this.canvas.height - 100;
+            }
+            if (this.enemies[1]) {
+                this.enemies[1].x = this.canvas.width - 100;
+                this.enemies[1].y = 100;
+            }
+            if (this.enemies[2]) {
+                this.enemies[2].x = 100;
+                this.enemies[2].y = this.canvas.height - 100;
+            }
+        }
     }
 
     handleKeyDown(e) {
@@ -113,39 +332,6 @@ class Game {
         if (e.key.toLowerCase() in this.keys) {
             this.keys[e.key.toLowerCase()] = false;
         }
-    }
-
-    handleTouchStart(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        this.touchControls.active = true;
-        this.touchControls.startX = touch.clientX;
-        this.touchControls.startY = touch.clientY;
-    }
-
-    handleTouchMove(e) {
-        if (!this.touchControls.active) return;
-        e.preventDefault();
-        
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - this.touchControls.startX;
-        const deltaY = touch.clientY - this.touchControls.startY;
-        
-        // Update cube position based on touch movement
-        this.cube.x += deltaX * 0.1;
-        this.cube.y += deltaY * 0.1;
-        
-        // Update touch reference points
-        this.touchControls.startX = touch.clientX;
-        this.touchControls.startY = touch.clientY;
-        
-        // Keep cube within bounds
-        this.cube.x = Math.max(0, Math.min(this.canvas.width - this.cube.size, this.cube.x));
-        this.cube.y = Math.max(0, Math.min(this.canvas.height - this.cube.size, this.cube.y));
-    }
-
-    handleTouchEnd() {
-        this.touchControls.active = false;
     }
 
     handleGyroscope(e) {
@@ -176,17 +362,6 @@ class Game {
         this.cube.y = Math.max(0, Math.min(this.canvas.height - this.cube.size, this.cube.y));
     }
 
-    moveCube() {
-        if (this.keys.w) this.cube.y -= this.cube.speed;
-        if (this.keys.s) this.cube.y += this.cube.speed;
-        if (this.keys.a) this.cube.x -= this.cube.speed;
-        if (this.keys.d) this.cube.x += this.cube.speed;
-
-        // Keep cube within bounds
-        this.cube.x = Math.max(0, Math.min(this.canvas.width - this.cube.size, this.cube.x));
-        this.cube.y = Math.max(0, Math.min(this.canvas.height - this.cube.size, this.cube.y));
-    }
-
     checkCollisions() {
         const cubeRect = {
             x: this.cube.x,
@@ -200,7 +375,7 @@ class Game {
                 this.createPaintSplash(
                     this.cube.x + this.cube.size/2,
                     this.cube.y + this.cube.size/2,
-                    item.color
+                    item.gradient.start
                 );
                 this.openModal(item.content);
                 this.resetCube();
@@ -217,13 +392,19 @@ class Game {
     }
 
     openModal(content) {
-        this.modalContent.innerHTML = `<h2>${content}</h2>
-            <p>This is the ${content} section. Add your content here!</p>`;
-        this.modal.style.display = 'block';
+        const modal = document.getElementById('modal');
+        const modalText = document.getElementById('modal-text');
+        if (modal && modalText) {
+            modalText.textContent = content;
+            modal.style.display = 'block';
+        }
     }
 
     closeModal() {
-        this.modal.style.display = 'none';
+        const modal = document.getElementById('modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
     }
 
     resetCube() {
@@ -341,6 +522,8 @@ class Game {
     }
 
     draw() {
+        if (!this.canvas || !this.ctx) return;
+
         // Clear canvas
         this.ctx.fillStyle = '#1a1a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -354,37 +537,139 @@ class Game {
         this.drawTrail();
 
         // Draw menu items with glow effect
-        for (const item of this.menuItems) {
+        if (this.menuItems) {
+            for (const item of this.menuItems) {
+                if (!item) continue;
+                
+                this.ctx.save();
+                
+                // Create gradient
+                const gradient = this.ctx.createLinearGradient(
+                    item.x, 
+                    item.y, 
+                    item.x + item.width, 
+                    item.y + item.height
+                );
+                gradient.addColorStop(0, item.gradient.start);
+                gradient.addColorStop(1, item.gradient.end);
+                
+                // Glow effect
+                this.ctx.shadowColor = item.gradient.start;
+                this.ctx.shadowBlur = 20;
+                
+                // Draw item with rounded corners and gradient
+                this.ctx.fillStyle = gradient;
+                this.roundRect(item.x, item.y, item.width, item.height, 15);
+                this.ctx.fill();
+                
+                // Draw text
+                this.ctx.fillStyle = '#fff';
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(item.content, item.x + item.width/2, item.y + item.height/2);
+                
+                this.ctx.restore();
+            }
+        }
+
+        // Draw logo
+        if (this.logo) {
             this.ctx.save();
             
-            // Glow effect
-            this.ctx.shadowColor = item.color;
+            // Create gradient for logo
+            const logoGradient = this.ctx.createLinearGradient(
+                this.logo.x - 100, 
+                this.logo.y,
+                this.logo.x + 100, 
+                this.logo.y
+            );
+            logoGradient.addColorStop(0, this.logo.gradient.start);
+            logoGradient.addColorStop(1, this.logo.gradient.end);
+            
+            this.ctx.fillStyle = logoGradient;
+            this.ctx.font = `bold ${this.logo.size}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Add glow effect
+            this.ctx.shadowColor = this.logo.gradient.start;
             this.ctx.shadowBlur = 20;
             
-            // Draw item
-            this.ctx.fillStyle = item.color;
-            this.ctx.fillRect(item.x, item.y, item.width, item.height);
-            
-            // Draw text
-            this.ctx.fillStyle = '#fff';
-            this.ctx.font = '16px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(item.content, item.x + item.width/2, item.y + item.height/2);
-            
+            this.ctx.fillText(this.logo.text, this.logo.x + 100, this.logo.y);
             this.ctx.restore();
         }
 
-        // Draw cube with trail effect
-        this.ctx.save();
-        this.ctx.shadowColor = '#fff';
-        this.ctx.shadowBlur = 10;
-        this.ctx.fillStyle = '#fff';
-        this.ctx.fillRect(this.cube.x, this.cube.y, this.cube.size, this.cube.size);
-        this.ctx.restore();
+        // Draw cube
+        if (this.cube) {
+            this.ctx.fillStyle = '#fff';
+            this.ctx.fillRect(this.cube.x, this.cube.y, this.cube.size, this.cube.size);
+        }
+
+        // Draw enemies
+        if (this.enemies) {
+            for (const enemy of this.enemies) {
+                if (!enemy) continue;
+                
+                this.ctx.beginPath();
+                this.ctx.fillStyle = enemy.color;
+                this.ctx.arc(enemy.x + enemy.size/2, enemy.y + enemy.size/2, enemy.size/2, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        }
+    }
+
+    roundRect(x, y, width, height, radius) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + radius, y);
+        this.ctx.lineTo(x + width - radius, y);
+        this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.ctx.lineTo(x + width, y + height - radius);
+        this.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.ctx.lineTo(x + radius, y + height);
+        this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.ctx.lineTo(x, y + radius);
+        this.ctx.quadraticCurveTo(x, y, x + radius, y);
+        this.ctx.closePath();
+    }
+
+    moveEnemies() {
+        for (const enemy of this.enemies) {
+            let dx = this.cube.x - enemy.x;
+            let dy = this.cube.y - enemy.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Normalize direction
+            dx = dx / distance;
+            dy = dy / distance;
+
+            switch(enemy.behavior) {
+                case 'chase':
+                    enemy.x += dx * enemy.speed;
+                    enemy.y += dy * enemy.speed;
+                    break;
+                case 'flanker':
+                    enemy.x += dy * enemy.speed;
+                    enemy.y -= dx * enemy.speed;
+                    break;
+                case 'random':
+                    if (Math.random() < 0.02) {
+                        enemy.direction = Math.random() * Math.PI * 2;
+                    }
+                    enemy.x += Math.cos(enemy.direction) * enemy.speed;
+                    enemy.y += Math.sin(enemy.direction) * enemy.speed;
+                    break;
+            }
+
+            // Keep enemies within bounds
+            enemy.x = Math.max(enemy.size/2, Math.min(this.canvas.width - enemy.size/2, enemy.x));
+            enemy.y = Math.max(enemy.size/2, Math.min(this.canvas.height - enemy.size/2, enemy.y));
+        }
     }
 
     gameLoop() {
-        this.moveCube();
+        this.updatePlayerPosition();
+        this.moveEnemies();
         this.checkCollisions();
         this.draw();
         requestAnimationFrame(() => this.gameLoop());
